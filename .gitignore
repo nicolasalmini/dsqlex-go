@@ -1,0 +1,11 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# OS
+.DS_Store
