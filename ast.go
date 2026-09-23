@@ -35,6 +35,7 @@ const (
 	NodeNotInExpr
 	NodeLikeExpr
 	NodeNotLikeExpr
+	NodeUnaryOp
 )
 
 type WhenClause struct {

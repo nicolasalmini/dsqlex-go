@@ -38,17 +38,22 @@ go test ./...
 
 | Feature | Syntax |
 |---------|--------|
-| Arithmetic | `+`, `-`, `*`, `/` (decimal precision) |
+| Arithmetic | `+`, `-`, `*`, `/` (decimal precision), unary `-` (`-x`, `-(a + b)`) |
 | Comparison | `=`, `!=`, `<`, `>`, `<=`, `>=` |
 | Logical | `AND`, `OR` (same-op chaining; mixing requires parens) |
 | Conditionals | `CASE WHEN ... THEN ... ELSE ... END` |
-| Functions | `ROUND()`, `COALESCE()`/`NVL()`, `UPPER()`, `LOWER()`, `ABS()`, `CONCAT()`, `EVENT()` |
+| Functions | `ROUND()`, `COALESCE()`/`NVL()`, `UPPER()`, `LOWER()`, `ABS()`, `CONCAT()`, `LEAST()`, `GREATEST()`, `EVENT()` |
 | Membership | `IN (...)`, `NOT IN (...)` |
 | Pattern | `LIKE`, `NOT LIKE` (case-insensitive) |
 | Null check | `IS NULL`, `IS NOT NULL`, `IS TRUE`, `IS FALSE` |
 | Literals | Numbers, strings (`'...'`), `TRUE`, `FALSE`, `NULL` |
-| Dot-paths | `config.pricing.margin` (nested context access) |
+| Identifiers | `field`, `a.b`, single trailing `?` (`active?`, `user.admin?`) |
+| Dot-paths | `config.pricing.margin` (nested contexts and lists of contexts) |
 | Comments | `--`, `#`, `/* ... */` |
+
+NULL propagates through arithmetic and `ROUND`/`ABS`. `LEAST`/`GREATEST` require at least one argument, return NULL if any argument is NULL, compare decimals numerically, strings lexicographically, and same-kind temporal values chronologically.
+
+`EVENT(type, subtype)` takes literal identifier arguments and calls `EvalOptions.EventResolver(type, subtype, ctx, visited)`; `EVENT(type, subtype, source)` resolves `source` against a named nested context or a named list of contexts (list results are summed as decimals; an empty list yields `0`).
 
 ## API
 
@@ -64,6 +69,8 @@ func EvalWithOptions(ast *AstNode, ctx *Context, opts *EvalOptions) (Value, erro
 
 // EvalString parses and evaluates in one call.
 func EvalString(expression string, ctx *Context) (Value, error)
+
+func EvalStringWithOptions(expression string, ctx *Context, opts *EvalOptions) (Value, error)
 ```
 
 ### Context
@@ -79,16 +86,27 @@ ctx.SetNull("discount")
 nested := dsqlex.NewContext()
 nested.SetDecimal("margin", "0.15")
 ctx.SetNested("config", nested)
+
+line := dsqlex.NewContext()
+line.SetDecimal("amt", "10")
+ctx.SetList("items", []*dsqlex.Context{line})
+
+ctx.SetDate("start", time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC))
+ctx.SetDateTime("created", time.Now())
+ctx.SetTime("cutoff", time.Date(0, 1, 1, 18, 30, 0, 0, time.UTC))
 ```
 
 ### Value
 
 ```go
 type Value struct {
-    Type   ValueType       // ValDecimal, ValString, ValBool, ValNull
-    DecVal decimal.Decimal // govalues/decimal — zero-allocation
-    StrVal string
-    BoolV  bool
+    Type    ValueType       // ValDecimal, ValString, ValBool, ValNull, ValDate, ValDateTime, ValTime, ValList, ValMap
+    DecVal  decimal.Decimal // govalues/decimal — zero-allocation
+    StrVal  string
+    BoolV   bool
+    TimeVal time.Time
+    ListVal *ValueList
+    MapVal  *Context
 }
 ```
 

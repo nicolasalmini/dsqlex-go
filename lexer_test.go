@@ -133,3 +133,62 @@ func TestLexerIsInLikeNot(t *testing.T) {
 		t.Fatal("IS/IN/LIKE/NOT tokens incorrect")
 	}
 }
+
+func TestLexerLeastGreatestTokens(t *testing.T) {
+	tokens, err := Tokenize("LEAST GREATEST least Greatest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := []TokenType{TokFnLeast, TokFnGreatest, TokFnLeast, TokFnGreatest}
+	for i, e := range expected {
+		if tokens[i].Type != e {
+			t.Fatalf("token %d: expected %d, got %d", i, e, tokens[i].Type)
+		}
+	}
+}
+
+func TestLexerTrailingQuestionMark(t *testing.T) {
+	tokens, err := Tokenize("active?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tokens) != 1 || tokens[0].Type != TokIdentifier || tokens[0].Text != "active?" {
+		t.Fatal("expected identifier 'active?'")
+	}
+}
+
+func TestLexerTrailingQuestionMarkDotted(t *testing.T) {
+	tokens, err := Tokenize("user.active?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tokens) != 1 || tokens[0].Type != TokIdentifier || tokens[0].Text != "user.active?" {
+		t.Fatal("expected identifier 'user.active?'")
+	}
+}
+
+func TestLexerQuestionMarkNotKeyword(t *testing.T) {
+	tokens, err := Tokenize("select?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tokens) != 1 || tokens[0].Type != TokIdentifier || tokens[0].Text != "select?" {
+		t.Fatal("expected identifier 'select?'")
+	}
+}
+
+func TestLexerDoubleQuestionMarkRejected(t *testing.T) {
+	if _, err := Tokenize("a??"); err == nil {
+		t.Fatal("expected error for 'a??'")
+	}
+}
+
+func TestLexerMinusTokenUnchanged(t *testing.T) {
+	tokens, err := Tokenize("a - b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tokens) != 3 || tokens[1].Type != TokMinus {
+		t.Fatal("minus token incorrect")
+	}
+}

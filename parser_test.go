@@ -149,3 +149,112 @@ func TestParserEmptyExpression(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestParserUnaryMinusLiteral(t *testing.T) {
+	ast, err := Parse("SELECT -1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := ast.Expr
+	if u.Kind != NodeUnaryOp || u.Op != OpMinus || u.Expr.Kind != NodeNumberLit {
+		t.Fatal("expected Select(UnaryOp(minus, Number(1)))")
+	}
+}
+
+func TestParserUnaryMinusRightOfMultiply(t *testing.T) {
+	ast, err := Parse("SELECT amount * -1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := ast.Expr
+	if b.Kind != NodeBinaryOp || b.Op != OpMultiply ||
+		b.Right.Kind != NodeUnaryOp || b.Right.Expr.Kind != NodeNumberLit {
+		t.Fatal("expected multiply(amount, unary(-1))")
+	}
+}
+
+func TestParserUnaryMinusParenthesized(t *testing.T) {
+	ast, err := Parse("SELECT -(1 + 2)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := ast.Expr
+	if u.Kind != NodeUnaryOp || u.Expr.Kind != NodeBinaryOp || u.Expr.Op != OpPlus {
+		t.Fatal("expected unary(-(1 + 2))")
+	}
+}
+
+func TestParserSubtractionOfNegatedOperand(t *testing.T) {
+	ast, err := Parse("SELECT 5 - - 2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := ast.Expr
+	if b.Kind != NodeBinaryOp || b.Op != OpMinus ||
+		b.Right.Kind != NodeUnaryOp || b.Right.Expr.Kind != NodeNumberLit {
+		t.Fatal("expected minus(5, unary(-2))")
+	}
+}
+
+func TestParserNestedUnaryMinus(t *testing.T) {
+	ast, err := Parse("SELECT - -5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := ast.Expr
+	if u.Kind != NodeUnaryOp || u.Expr.Kind != NodeUnaryOp || u.Expr.Expr.Kind != NodeNumberLit {
+		t.Fatal("expected unary(unary(5))")
+	}
+}
+
+func TestParserDoubleDashIsComment(t *testing.T) {
+	if _, err := Parse("SELECT --5"); err == nil {
+		t.Fatal("expected error: '--5' is a comment, not unary minus")
+	}
+}
+
+func TestParserUnaryMinusInList(t *testing.T) {
+	ast, err := Parse("x IN (1, -2)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := ast.Expr
+	if in.Kind != NodeInExpr || len(in.Args) != 2 ||
+		in.Args[1].Kind != NodeUnaryOp {
+		t.Fatal("expected IN list with negated second item")
+	}
+}
+
+func TestParserEmptyInList(t *testing.T) {
+	ast, err := Parse("x IN ()")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ast.Expr.Kind != NodeInExpr || len(ast.Expr.Args) != 0 {
+		t.Fatal("expected IN with empty item list")
+	}
+}
+
+func TestParserMixedArithmeticWithNegatedOperandRejected(t *testing.T) {
+	if _, err := Parse("SELECT 1 + 2 * -3"); err == nil {
+		t.Fatal("expected ambiguous-expression error")
+	}
+}
+
+func TestParserLeastGreatestCalls(t *testing.T) {
+	ast, err := Parse("LEAST(a, 1, 2)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	f := ast.Expr
+	if f.Kind != NodeFunctionCall || f.StrVal != "LEAST" || len(f.Args) != 3 {
+		t.Fatal("expected LEAST call with 3 args")
+	}
+	ast2, err := Parse("GREATEST(x, y)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ast2.Expr.Kind != NodeFunctionCall || ast2.Expr.StrVal != "GREATEST" || len(ast2.Expr.Args) != 2 {
+		t.Fatal("expected GREATEST call with 2 args")
+	}
+}
