@@ -27,3 +27,11 @@ func EvalString(expression string, ctx *Context) (Value, error) {
 	}
 	return Eval(ast, ctx)
 }
+
+func EvalStringWithOptions(expression string, ctx *Context, opts *EvalOptions) (Value, error) {
+	ast, err := Parse(expression)
+	if err != nil {
+		return NullValue, err
+	}
+	return EvalWithOptions(ast, ctx, opts)
+}

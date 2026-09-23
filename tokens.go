@@ -41,6 +41,8 @@ const (
 	TokLParen
 	TokRParen
 	TokComma
+	TokFnLeast
+	TokFnGreatest
 )
 
 type Token struct {

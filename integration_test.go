@@ -191,3 +191,64 @@ func TestIntegrationShortCircuitOr(t *testing.T) {
 	}
 	assertBoolEq(t, v, true)
 }
+
+func TestIntegrationUnaryMinus(t *testing.T) {
+	ctx := NewContext()
+	ctx.SetDecimal("price", "500.00")
+	ctx.SetNull("bonus")
+
+	v, err := EvalString("SELECT -2.5", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertDecEq(t, v, "-2.5")
+
+	v, _ = EvalString("SELECT -price", ctx)
+	assertDecEq(t, v, "-500.00")
+
+	v, _ = EvalString("SELECT price * -1", ctx)
+	assertDecEq(t, v, "-500.00")
+
+	v, _ = EvalString("SELECT 5 - - 2", ctx)
+	assertDecEq(t, v, "7")
+
+	ctx2 := NewContext()
+	ctx2.SetDecimal("balance", "-42")
+	v, _ = EvalString("balance IN (-42, 0)", ctx2)
+	assertBoolEq(t, v, true)
+	v, _ = EvalString("balance IN (-41, 0)", ctx2)
+	assertBoolEq(t, v, false)
+
+	v, _ = EvalString("SELECT -bonus", ctx)
+	assertNull(t, v)
+}
+
+func TestIntegrationLeastGreatestNull(t *testing.T) {
+	ctx := NewContext()
+	ctx.SetDecimal("price", "500.00")
+	ctx.SetDecimal("quantity", "100.00")
+	ctx.SetDecimal("rate", "5.00")
+	ctx.SetNull("bonus")
+
+	v, err := EvalString("SELECT LEAST(price, quantity, rate)", ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertDecEq(t, v, "5.00")
+
+	v, _ = EvalString("SELECT GREATEST(price, quantity, rate)", ctx)
+	assertDecEq(t, v, "500.00")
+
+	v, _ = EvalString("SELECT LEAST(price, bonus)", ctx)
+	assertNull(t, v)
+
+	v, _ = EvalString("SELECT bonus + 1", ctx)
+	assertNull(t, v)
+	v, _ = EvalString("SELECT price * bonus", ctx)
+	assertNull(t, v)
+
+	ctx3 := NewContext()
+	ctx3.SetBool("eligible?", true)
+	v, _ = EvalString("SELECT eligible?", ctx3)
+	assertBoolEq(t, v, true)
+}

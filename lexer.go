@@ -28,6 +28,8 @@ var keywords = map[string]TokenType{
 	"NVL":      TokFnCoalesce,
 	"ABS":      TokFnAbs,
 	"CONCAT":   TokFnConcat,
+	"LEAST":    TokFnLeast,
+	"GREATEST": TokFnGreatest,
 	"EVENT":    TokFnEvent,
 }
 
@@ -161,6 +163,9 @@ func Tokenize(input string) ([]Token, error) {
 		if isIdentStart(c) {
 			start := i
 			for i < n && isIdentCont(input[i]) {
+				i++
+			}
+			if i < n && input[i] == '?' {
 				i++
 			}
 			text := input[start:i]

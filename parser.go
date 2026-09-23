@@ -216,18 +216,18 @@ func (p *parser) parseInList() ([]*AstNode, error) {
 	if _, err := p.expect(TokLParen); err != nil {
 		return nil, err
 	}
-	first, err := p.parseLogical()
-	if err != nil {
-		return nil, err
-	}
-	items := []*AstNode{first}
-	for p.peekType() == TokComma {
-		p.advance()
-		item, err := p.parseLogical()
+	var items []*AstNode
+	for p.peekType() != TokRParen {
+		item, err := p.parsePrimary()
 		if err != nil {
 			return nil, err
 		}
 		items = append(items, item)
+		if p.peekType() == TokComma {
+			p.advance()
+		} else {
+			break
+		}
 	}
 	if _, err := p.expect(TokRParen); err != nil {
 		return nil, err
@@ -289,6 +289,14 @@ func arithGroup(tt TokenType) int {
 
 func (p *parser) parsePrimary() (*AstNode, error) {
 	switch p.peekType() {
+	case TokMinus:
+		p.advance()
+		operand, err := p.parsePrimary()
+		if err != nil {
+			return nil, err
+		}
+		return &AstNode{Kind: NodeUnaryOp, Op: OpMinus, Expr: operand}, nil
+
 	case TokNumber:
 		tok := p.advance()
 		d, err := decimal.Parse(tok.Text)
@@ -331,7 +339,7 @@ func (p *parser) parsePrimary() (*AstNode, error) {
 	case TokCase:
 		return p.parseCase()
 
-	case TokFnUpper, TokFnLower, TokFnRound, TokFnCoalesce, TokFnAbs, TokFnConcat, TokFnEvent:
+	case TokFnUpper, TokFnLower, TokFnRound, TokFnCoalesce, TokFnAbs, TokFnConcat, TokFnLeast, TokFnGreatest, TokFnEvent:
 		return p.parseFunctionCall()
 
 	default:
@@ -396,6 +404,10 @@ func (p *parser) parseFunctionCall() (*AstNode, error) {
 		name = "ABS"
 	case TokFnConcat:
 		name = "CONCAT"
+	case TokFnLeast:
+		name = "LEAST"
+	case TokFnGreatest:
+		name = "GREATEST"
 	case TokFnEvent:
 		name = "EVENT"
 	}
